@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 import * as THREE from "three";
 import { useEffect, useRef, useState } from "react";
@@ -25,21 +24,18 @@ import { useControls } from "leva";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader";
 import MyFont from "../public/cmb10_Regular.json";
+import { Layer, Line, Stage, Circle } from "react-konva";
 extend({ MeshLineGeometry, MeshLineMaterial, TextGeometry });
-useGLTF.preload(
-  "/strobe-card.glb"
-);
-useTexture.preload(
-  "/band-1.png"
-);
+useGLTF.preload("/strobe-card.glb");
+useTexture.preload("/band-1.png");
 
-export default function App() {
+function MainPage() {
   const { debug } = useControls({ debug: false });
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
+    <div style={{ width: "100vw", height: "100vh" }} className="pointer-events-none">
       <Canvas
         camera={{ position: [0, 0, 13], fov: 25 }}
-        style={{ width: "100%", height: "100%" }}
+        style={{ width: "100%", height: "100%", background: "transparent" }}
       >
         <ambientLight intensity={Math.PI} />
         <Physics
@@ -50,7 +46,7 @@ export default function App() {
         >
           <Band />
         </Physics>
-        <Environment background blur={0.75}>
+        <Environment background={false} blur={0.75}>
           <color attach="background" args={["black"]} />
           <Lightformer
             intensity={2}
@@ -96,12 +92,8 @@ function Band({ maxSpeed = 50, minSpeed = 10 }) {
     angularDamping: 2,
     linearDamping: 2,
   };
-  const { nodes, materials } = useGLTF(
-    "/strobe-card.glb"
-  );
-  const texture = useTexture(
-    "/band-1.png"
-  );
+  const { nodes, materials } = useGLTF("/strobe-card.glb");
+  const texture = useTexture("/band-1.png");
   const { width, height } = useThree((state) => state.size);
   const [curve] = useState(
     () =>
@@ -173,17 +165,6 @@ function Band({ maxSpeed = 50, minSpeed = 10 }) {
 
   const font = new FontLoader().parse(MyFont);
 
-  // const loader = new FontLoader();
-
-  // loader.load('/dejavu.json', function (font) {
-  //   const geometry = new TextGeometry('Hello three.js!', {
-  //     font: font,
-  //     size: 80,
-  //     height: 5,
-  //     // other options...
-  //   });
-  // });
-
   return (
     <>
       <group position={[0, 4, 0]}>
@@ -241,7 +222,7 @@ function Band({ maxSpeed = 50, minSpeed = 10 }) {
             <mesh geometry={nodes.clamp.geometry} material={materials.metal} />
             <Text3D
               font={MyFont}
-              position={[-0.33, 0.45, 0.001]}
+              position={[-0.33, 0.45, 0.0001]}
               scale={0.1}
               rotation={[0, 0, 0]}
             >
@@ -264,5 +245,87 @@ function Band({ maxSpeed = 50, minSpeed = 10 }) {
         />
       </mesh>
     </>
+  );
+}
+
+export default function App() {
+  const [lines, setLines] = useState([]);
+  const [circles, setCircles] = useState([]);
+  const isDrawing = useRef(false);
+
+  const handleMouseDown = () => {
+    isDrawing.current = true;
+    setLines([...lines, []]);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDrawing.current) {
+      return;
+    }
+    const stage = e.target.getStage();
+    const point = stage.getPointerPosition();
+    let lastLine = lines[lines.length - 1];
+    lastLine = lastLine.concat([point.x, point.y]);
+    lines.splice(lines.length - 1, 1, lastLine);
+    setLines(lines.concat());
+  };
+
+  const handleMouseUp = () => {
+    isDrawing.current = false;
+  };
+
+  const handleAddCircle = () => {
+    const newCircle = {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+      radius: 50,
+      fill: "red",
+      id: `circle-${circles.length + 1}`,
+    };
+    setCircles([...circles, newCircle]);
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-400">
+      <button
+        onClick={handleAddCircle}
+        className="absolute top-4 left-4 p-2 bg-blue-500 text-white rounded z-[99999]"
+      >
+        Add Circle
+      </button>
+      <div className="relative w-full h-full">
+        <MainPage />
+      </div>
+      <div className="absolute top-0 left-0 w-full h-full p-4">
+        <div className="flex flex-col items-center justify-center h-full space-y-4">
+          <h1 className="text-4xl font-bold text-center text-black">Main Content</h1>
+          <p className="text-lg text-center text-gray-700">This is where the main content goes.</p>
+          <Stage
+            width={window.innerWidth}
+            height={window.innerHeight}
+            onMouseDown={handleMouseDown}
+            onMousemove={handleMouseMove}
+            onMouseup={handleMouseUp}
+            style={{ position: "absolute", top: 0, left: 0 }}
+          >
+            <Layer>
+              {lines.map((line, i) => (
+                <Line key={i} points={line} stroke="black" strokeWidth={5} tension={0.5} lineCap="round" />
+              ))}
+              {circles.map((circle) => (
+                <Circle
+                  key={circle.id}
+                  x={circle.x}
+                  y={circle.y}
+                  radius={circle.radius}
+                  fill={circle.fill}
+                  draggable
+                />
+              ))}
+            </Layer>
+          </Stage>
+        </div>
+      </div>
+    </div>
   );
 }
